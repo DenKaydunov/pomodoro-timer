@@ -1,0 +1,10 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* Кастомные стили для анимаций */
+@layer utilities {
+  .transition-bg {
+    transition: background 0.5s ease;
+  }
+}
