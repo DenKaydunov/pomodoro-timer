@@ -1,0 +1,371 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Помодоро Таймер</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            transition: background 0.5s ease;
+        }
+
+        body.pomodoro {
+            background: linear-gradient(135deg, #e74c3c 0%, #c0392b 100%);
+        }
+
+        body.short-break {
+            background: linear-gradient(135deg, #27ae60 0%, #229954 100%);
+        }
+
+        body.long-break {
+            background: linear-gradient(135deg, #3498db 0%, #2980b9 100%);
+        }
+
+        .container {
+            background: rgba(255, 255, 255, 0.95);
+            border-radius: 20px;
+            padding: 40px;
+            box-shadow: 0 10px 40px rgba(0, 0, 0, 0.3);
+            text-align: center;
+            max-width: 500px;
+            width: 90%;
+        }
+
+        h1 {
+            color: #2c3e50;
+            margin-bottom: 30px;
+            font-size: 2em;
+        }
+
+        .mode-buttons {
+            display: flex;
+            justify-content: center;
+            gap: 10px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+
+        .mode-btn {
+            background: #ecf0f1;
+            border: none;
+            padding: 10px 20px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1em;
+            transition: all 0.3s ease;
+            color: #2c3e50;
+            font-weight: 500;
+        }
+
+        .mode-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.2);
+        }
+
+        .mode-btn.active {
+            background: #2c3e50;
+            color: white;
+        }
+
+        .timer-display {
+            font-size: 6em;
+            font-weight: bold;
+            color: #2c3e50;
+            margin: 30px 0;
+            font-family: 'Courier New', monospace;
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 20px;
+            background: #ecf0f1;
+            border-radius: 10px;
+            overflow: hidden;
+            margin-bottom: 30px;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: #2c3e50;
+            transition: width 0.5s ease;
+            border-radius: 10px;
+        }
+
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+
+        .control-btn {
+            background: #2c3e50;
+            color: white;
+            border: none;
+            padding: 15px 40px;
+            border-radius: 10px;
+            cursor: pointer;
+            font-size: 1.1em;
+            transition: all 0.3s ease;
+            font-weight: 600;
+        }
+
+        .control-btn:hover {
+            transform: scale(1.05);
+            box-shadow: 0 5px 15px rgba(0, 0, 0, 0.3);
+        }
+
+        .control-btn:active {
+            transform: scale(0.98);
+        }
+
+        .stats {
+            color: #7f8c8d;
+            font-size: 1.1em;
+            margin-top: 20px;
+        }
+
+        .stats strong {
+            color: #2c3e50;
+        }
+
+        @media (max-width: 600px) {
+            .container {
+                padding: 30px 20px;
+            }
+
+            h1 {
+                font-size: 1.5em;
+            }
+
+            .timer-display {
+                font-size: 4em;
+            }
+
+            .mode-btn {
+                padding: 8px 15px;
+                font-size: 0.9em;
+            }
+
+            .control-btn {
+                padding: 12px 30px;
+                font-size: 1em;
+            }
+        }
+    </style>
+</head>
+<body class="pomodoro">
+    <div class="container">
+        <h1>🍅 Помодоро Таймер</h1>
+
+        <div class="mode-buttons">
+            <button class="mode-btn active" data-mode="pomodoro">Работа</button>
+            <button class="mode-btn" data-mode="short-break">Короткий перерыв</button>
+            <button class="mode-btn" data-mode="long-break">Длинный перерыв</button>
+        </div>
+
+        <div class="timer-display" id="timer">25:00</div>
+
+        <div class="progress-bar">
+            <div class="progress-fill" id="progress" style="width: 100%;"></div>
+        </div>
+
+        <div class="controls">
+            <button class="control-btn" id="startBtn">Старт</button>
+            <button class="control-btn" id="resetBtn">Сброс</button>
+        </div>
+
+        <div class="stats">
+            Завершено помодоро: <strong id="pomodoroCount">0</strong>
+        </div>
+    </div>
+
+    <script>
+        // Состояние приложения
+        const state = {
+            mode: 'pomodoro',
+            isRunning: false,
+            timeLeft: 25 * 60, // в секундах
+            totalTime: 25 * 60,
+            pomodoroCount: 0,
+            timerInterval: null
+        };
+
+        // Настройки времени для разных режимов (в секундах)
+        const TIME_SETTINGS = {
+            'pomodoro': 25 * 60,
+            'short-break': 5 * 60,
+            'long-break': 15 * 60
+        };
+
+        // Элементы DOM
+        const timerDisplay = document.getElementById('timer');
+        const progressBar = document.getElementById('progress');
+        const startBtn = document.getElementById('startBtn');
+        const resetBtn = document.getElementById('resetBtn');
+        const pomodoroCountDisplay = document.getElementById('pomodoroCount');
+        const modeButtons = document.querySelectorAll('.mode-btn');
+
+        // Запросить разрешение на уведомления
+        if ('Notification' in window && Notification.permission === 'default') {
+            Notification.requestPermission();
+        }
+
+        // Обновить отображение таймера
+        function updateDisplay() {
+            const minutes = Math.floor(state.timeLeft / 60);
+            const seconds = state.timeLeft % 60;
+            timerDisplay.textContent = `${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+
+            // Обновить прогресс-бар
+            const progress = (state.timeLeft / state.totalTime) * 100;
+            progressBar.style.width = `${progress}%`;
+
+            // Обновить заголовок страницы
+            document.title = `${timerDisplay.textContent} - Помодоро Таймер`;
+        }
+
+        // Запустить таймер
+        function startTimer() {
+            if (!state.isRunning) {
+                state.isRunning = true;
+                startBtn.textContent = 'Пауза';
+
+                state.timerInterval = setInterval(() => {
+                    state.timeLeft--;
+                    updateDisplay();
+
+                    if (state.timeLeft === 0) {
+                        onTimerComplete();
+                    }
+                }, 1000);
+            } else {
+                pauseTimer();
+            }
+        }
+
+        // Поставить таймер на паузу
+        function pauseTimer() {
+            state.isRunning = false;
+            startBtn.textContent = 'Старт';
+            clearInterval(state.timerInterval);
+        }
+
+        // Сбросить таймер
+        function resetTimer() {
+            pauseTimer();
+            state.timeLeft = state.totalTime;
+            updateDisplay();
+        }
+
+        // Переключить режим
+        function switchMode(mode) {
+            pauseTimer();
+            state.mode = mode;
+            state.totalTime = TIME_SETTINGS[mode];
+            state.timeLeft = state.totalTime;
+
+            // Обновить UI
+            document.body.className = mode;
+            modeButtons.forEach(btn => {
+                btn.classList.toggle('active', btn.dataset.mode === mode);
+            });
+
+            updateDisplay();
+        }
+
+        // Воспроизвести звук
+        function playSound() {
+            const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+            const oscillator = audioContext.createOscillator();
+            const gainNode = audioContext.createGain();
+
+            oscillator.connect(gainNode);
+            gainNode.connect(audioContext.destination);
+
+            oscillator.frequency.value = 800;
+            oscillator.type = 'sine';
+
+            gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+            gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+
+            oscillator.start(audioContext.currentTime);
+            oscillator.stop(audioContext.currentTime + 0.5);
+        }
+
+        // Показать уведомление
+        function showNotification(title, body) {
+            if ('Notification' in window && Notification.permission === 'granted') {
+                new Notification(title, {
+                    body: body,
+                    icon: '🍅'
+                });
+            }
+        }
+
+        // Обработать завершение таймера
+        function onTimerComplete() {
+            pauseTimer();
+            playSound();
+
+            if (state.mode === 'pomodoro') {
+                state.pomodoroCount++;
+                pomodoroCountDisplay.textContent = state.pomodoroCount;
+
+                showNotification(
+                    'Помодоро завершено!',
+                    'Время для перерыва. Отдохните немного!'
+                );
+
+                // Автоматически переключиться на перерыв
+                if (state.pomodoroCount % 4 === 0) {
+                    switchMode('long-break');
+                } else {
+                    switchMode('short-break');
+                }
+            } else {
+                showNotification(
+                    'Перерыв окончен!',
+                    'Время вернуться к работе!'
+                );
+                switchMode('pomodoro');
+            }
+        }
+
+        // Обработчики событий
+        startBtn.addEventListener('click', startTimer);
+        resetBtn.addEventListener('click', resetTimer);
+
+        modeButtons.forEach(btn => {
+            btn.addEventListener('click', () => {
+                switchMode(btn.dataset.mode);
+            });
+        });
+
+        // Обработка клавиатуры
+        document.addEventListener('keydown', (e) => {
+            if (e.code === 'Space') {
+                e.preventDefault();
+                startTimer();
+            } else if (e.code === 'KeyR') {
+                e.preventDefault();
+                resetTimer();
+            }
+        });
+
+        // Инициализация
+        updateDisplay();
+    </script>
+</body>
+</html>
